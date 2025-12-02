@@ -5,8 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.annotation.Nonnull;
-
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,4 +14,5 @@ public class GoogleUserInfoResponse {
     private String id;
     private String email;
     private String name;
+    private String locale;
 }
