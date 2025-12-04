@@ -2,22 +2,24 @@ package com.example.backend.dto.book;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
-@Getter
+@Data
 
 public class IndexBookResponse {
 
-    private String id;
-    private String title;
-    private String author;
-    private LocalDateTime createdDate;
-    private String imageUrl;
+    String nextUrl;
+    @Builder.Default
+    List<BookDetailResponse> bookDetails = new ArrayList<>();
+
+    @Builder
+    public record BookDetailResponse(Long id, String title, String author) {
+    }
+
 
 }

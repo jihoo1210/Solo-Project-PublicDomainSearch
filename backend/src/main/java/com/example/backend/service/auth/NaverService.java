@@ -45,6 +45,7 @@ public class NaverService {
         NaverTokenResponse tokenResponse = response.getBody();
         if(response.getStatusCode().is2xxSuccessful() && tokenResponse != null) {
             String accessToken = tokenResponse.getAccess_token();
+        log.info("tokenResponse: {}", tokenResponse);
 
             headers.setBearerAuth(accessToken);
             entity = new HttpEntity<>(headers);

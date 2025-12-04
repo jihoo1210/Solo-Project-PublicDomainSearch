@@ -1,0 +1,42 @@
+package com.example.backend.service.book;
+
+import co.elastic.clients.util.ContentType;
+import com.example.backend.dto.book.gutendex.GutendexDocumentDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+
+import java.nio.charset.StandardCharsets;
+
+@RequiredArgsConstructor
+@Service
+public class UploadService {
+
+    private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
+    private final ObjectMapper objectMapper;
+    @Value("${cloud.aws.s3.bucket}")
+    private String bucket;
+
+    public PutObjectResponse upload(GutendexDocumentDto dto, String key) throws JsonProcessingException {
+        String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(dto);
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .contentType(ContentType.APPLICATION_JSON)
+                .build();
+
+        return s3Client.putObject(
+                putObjectRequest,
+                RequestBody.fromString(json, StandardCharsets.UTF_8)
+        );
+    }
+}

@@ -49,6 +49,10 @@ dependencies {
     // Oauth2
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     testImplementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+
+    // aws auth, S3 database
+    implementation ('software.amazon.awssdk:s3:2.20.0')
+    implementation ('software.amazon.awssdk:auth:2.25.22')
 }
 
 tasks.named('test') {

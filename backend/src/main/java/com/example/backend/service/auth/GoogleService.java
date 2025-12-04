@@ -60,6 +60,7 @@ public class GoogleService {
                 HttpMethod.GET,
                 infoEntity,
                 GoogleUserInfoResponse.class);
+        log.info("GoogleUserInfoResponse: {}", userInfoResponse); // locale 필드는 없을 수도 있음
 
         if(!userInfoResponse.getStatusCode().is2xxSuccessful() || userInfoResponse.getBody() == null) {
             throw new IllegalAccessError("Google 사용자 정보 요청 실패");

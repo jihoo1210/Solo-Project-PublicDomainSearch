@@ -69,8 +69,8 @@ public class GutendexBooksResponse {
         @JsonProperty("application/epub+zip")
         private String epubUrl;
 
-        @JsonProperty("text/html")
-        private String htmlUrl;
+        @JsonProperty("text/plain; charset=us-ascii")
+        private String textUrl;
 
         @JsonProperty("image/jpeg")
         private String imageUrl; // 유연성을 위해 다른 형식도 포함할 수 있습니다.
