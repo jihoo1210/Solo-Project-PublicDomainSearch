@@ -18,7 +18,7 @@ public class IndexBookResponse {
     List<BookDetailResponse> bookDetails = new ArrayList<>();
 
     @Builder
-    public record BookDetailResponse(Long id, String title, String author) {
+    public record BookDetailResponse(Long id, String title, String author, String imageUrl) {
     }
 
 

@@ -49,8 +49,8 @@ public class JwtProvider {
                     .getPayload()
                     .getSubject();
         } catch (Exception e) {
-            log.error("e", e);
+            log.error("e: {}", e.getMessage());
         }
-        throw new JwtException("Invalid JWT token");
+        return null;
     }
 }

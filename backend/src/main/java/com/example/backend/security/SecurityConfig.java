@@ -46,7 +46,7 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/user/**").hasRole("USER")
+//                        .requestMatchers("/api/user/**").hasRole("USER")
                         .requestMatchers("/api/economic/**").hasRole("ECONOMIC")
                         .requestMatchers("/api/premier/**").hasRole("PREMIER")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

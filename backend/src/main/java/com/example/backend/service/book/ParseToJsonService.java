@@ -2,6 +2,7 @@ package com.example.backend.service.book;
 
 import com.example.backend.dto.book.gutendex.GutendexDocumentDto;
 import com.example.backend.dto.book.gutendex.GutendexSentenceDto;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -9,13 +10,13 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Slf4j
 @Service
 public class ParseToJsonService {
 
     private static final String START = "\\*\\*\\* START OF THE PROJECT GUTENBERG EBOOK .*? \\*\\*\\*";
     private static final String END = "\\*\\*\\* END OF THE PROJECT GUTENBERG EBOOK .*? \\*\\*\\*";
-    private static final String START_TOC = "\n\n\n\n CONTENTS";
-    private static final String END_TOC = "\n\n\n\n";
+    private static final String START_TOC = "(?i)CONTENTS[\\s\\S]*?";
     private static final Pattern SENTENCE_PATTERN =  Pattern.compile("(?<=([.!?])\\s)");
 
     public GutendexDocumentDto convertTextToDocumentDto(String textContent, String title) {
@@ -58,47 +59,100 @@ public class ParseToJsonService {
 
     private List<String> extractAndProcessTOC(String coreContent) {
         List<String> tocList = new ArrayList<>();
+        Pattern pattern = Pattern.compile(START_TOC);
+        Matcher matcher = pattern.matcher(coreContent);
 
-        int tocStartIdx = coreContent.indexOf(START_TOC);
-        if(tocStartIdx < 0) return tocList;
+        if (!matcher.find()) {
+            log.info("START_TOC 패턴을 찾을 수 없습니다.");
+            return tocList;
+        }
 
-        String afterTocStart = coreContent.substring(tocStartIdx + START_TOC.length()); // 목차 이후 텍스트
-        int tocEndIdx = afterTocStart.indexOf(END_TOC);
-        if(tocEndIdx < 0) return tocList;
+        int tocStartIdx = matcher.end();
 
-        String rawToc = afterTocStart.substring(0, tocEndIdx).trim();
-        String[] lines = rawToc.split("\n");
+        String afterTocStart = coreContent.substring(tocStartIdx); // 목차 이후 텍스트
+        String[] lines = afterTocStart.split("\r?\n");
+        int consecutiveEmptyLines = 0;
+        boolean inTocSection = false;
         for(String line : lines) {
-            String trimmedLien = line.trim();
-            if(trimmedLien.isEmpty()) continue;
+            String trimmedLine = line.trim();
 
-            int dotIdx = trimmedLien.indexOf(".");
-            if(dotIdx > 0) {
-                tocList.add(trimmedLien.substring(0, dotIdx).trim());
+            if (trimmedLine.isEmpty()) {
+                // 빈 줄이 나오면 카운터를 증가시킵니다.
+                consecutiveEmptyLines++;
             } else {
-                tocList.add(trimmedLien);
+                // 내용이 있는 줄이 나오면 카운터를 초기화합니다.
+                consecutiveEmptyLines = 0;
+
+                // 목차 본문이 시작되었음을 표시
+                inTocSection = true;
+            }
+
+            if (consecutiveEmptyLines >= 2 && inTocSection) {
+                break; // 반복문 종료
+            }
+            if (consecutiveEmptyLines == 0 && inTocSection) {
+
+                if (trimmedLine.matches("\\.+")) {
+                    continue;
+                }
+                // 항목 끝의 마침표(.)를 기준으로 제목만 추출하는 로직 (원본 코드 유지)
+                int dotIdx = trimmedLine.indexOf(".");
+                if(dotIdx > 0) {
+                    // 숫자가 아닌 글자만 포함하는 경우를 위해 trim() 처리
+                    tocList.add(trimmedLine.substring(0, dotIdx).trim());
+                } else {
+                    tocList.add(trimmedLine);
+                }
             }
         }
         return tocList;
     }
 
     private String removeTOC(String coreContent) {
-        int tocStartIdx = coreContent.indexOf(START_TOC);
-        if(tocStartIdx < 0) return coreContent;
+        Pattern pattern = Pattern.compile(START_TOC);
+        Matcher matcher = pattern.matcher(coreContent);
 
-        String afterTocContent = coreContent.substring(tocStartIdx + START_TOC.length());
-        int tocEndIdx = coreContent.indexOf(END_TOC);
-        if(tocEndIdx < 0) {
+        if (!matcher.find()) {
             return coreContent;
-        } else {
-            return afterTocContent.substring(tocEndIdx).trim();
         }
+
+        int tocStartIdx = matcher.end();
+        String afterTocStart = coreContent.substring(tocStartIdx);
+
+        String[] lines = afterTocStart.split("\r?\n");
+
+        int consecutiveEmptyLines = 0;
+        boolean inTocSection = false;
+        int endLineIndex = -1;
+
+        for (int i = 0; i < lines.length; i++) {
+            String trimmed = lines[i].trim();
+
+            if (trimmed.isEmpty()) {
+                consecutiveEmptyLines++;
+            } else {
+                consecutiveEmptyLines = 0;
+                inTocSection = true;
+            }
+
+            if (inTocSection && consecutiveEmptyLines >= 2) {
+                endLineIndex = i + 1;
+                break;
+            }
+        }
+
+        if (endLineIndex < 0) {
+            return coreContent;
+        }
+
+        return coreContent.substring(tocStartIdx + endLineIndex);
     }
+
 
     private List<GutendexSentenceDto> processBodyContent(String bodyContent) {
         List<GutendexSentenceDto> sentenceList = new ArrayList<>();
 
-        String[] paragraphs = bodyContent.split("\n\\s*\n");
+        String[] paragraphs = bodyContent.split("\r?\n\\s*\r?\n");
         int paragraphNumber = 1;
 
         for (String paragraph : paragraphs) {
@@ -113,11 +167,12 @@ public class ParseToJsonService {
                 boolean paragraphStart = (i == 0);
                 sentenceList.add(GutendexSentenceDto.builder()
                         .sentenceNumber(i + 1)
-                        .paragraphNumber(paragraphNumber++)
+                        .paragraphNumber(paragraphNumber)
                         .content(sentence)
                         .paragraphStart(paragraphStart)
                         .build());
             }
+            paragraphNumber++;
         }
         return sentenceList;
     }

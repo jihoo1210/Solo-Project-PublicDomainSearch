@@ -28,6 +28,9 @@ public class Book {
     private String downloadUrl;
 
     @Column
+    private String textUrl;
+
+    @Column
     private String imageUrl;
 
     @Enumerated(EnumType.STRING)

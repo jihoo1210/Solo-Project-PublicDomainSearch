@@ -9,6 +9,7 @@ import com.example.backend.dto.auth.local.LocalResisterRequest;
 import com.example.backend.dto.auth.naver.NaverUserInfoResponse;
 import com.example.backend.entity.user.User;
 import com.example.backend.entity.user.enumeration.AuthProvider;
+import lombok.extern.slf4j.Slf4j;
 import com.example.backend.entity.user.enumeration.Language;
 import com.example.backend.security.CustomUserDetails;
 import com.example.backend.security.CustomUserDetailsService;
@@ -79,7 +80,11 @@ public class AuthController {
 
         response.addCookie(cookie);
 
-        return ResponseController.success(null);
+        log.info("✅ Local 로그인 성공: {}", email);
+
+        // 사용자 정보도 함께 반환
+        AuthMyInfoResponse userInfo = userService.getUserByEmail(email);
+        return ResponseController.success(userInfo);
     }
 
     // ***** NAVER ***** //
@@ -105,14 +110,20 @@ public class AuthController {
         CustomUserDetails userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(user.getEmail());
         String jwtToken = jwtProvider.tokenProvide(userDetails);
 
+        // 쿠키 설정
         Cookie cookie = new Cookie("ACCESS_TOKEN", jwtToken);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(3600);
+        cookie.setSecure(false); // 개발환경
         response.addCookie(cookie);
 
+        log.info("✅ Naver OAuth 콜백 완료");
+        log.info("Email: {}", email);
+        log.info("Token: {}...", jwtToken.substring(0, Math.min(30, jwtToken.length())));
+
         // 프론트엔드로 리다이렉트
-        response.sendRedirect("http://localhost:3000?callback=success");
+        response.sendRedirect("http://localhost:5173");
         return null;
     }
 
@@ -140,13 +151,19 @@ public class AuthController {
         CustomUserDetails userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(user.getEmail());
         String jwtToken = jwtProvider.tokenProvide(userDetails);
 
+        // 쿠키 설정
         Cookie cookie = new Cookie("ACCESS_TOKEN", jwtToken);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(3600);
+        cookie.setSecure(false);
         response.addCookie(cookie);
 
-        response.sendRedirect("http://localhost:3000?callback=success");
+        log.info("✅ Google OAuth 콜백 완료");
+        log.info("Email: {}", email);
+        log.info("Token: {}...", jwtToken.substring(0, Math.min(30, jwtToken.length())));
+
+        response.sendRedirect("http://localhost:5173");
         return null;
     }
 
