@@ -14,4 +14,5 @@ public class LocalResisterRequest {
     private String email;
     private String username;
     private String password;
+    private String language;
 }

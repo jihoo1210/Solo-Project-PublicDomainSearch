@@ -1,5 +1,6 @@
 package com.example.backend.entity.book;
 
+import com.example.backend.entity.user.enumeration.Language;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,4 +23,13 @@ public class Book {
 
     @Column
     private String author;
+
+    @Column
+    private String downloadUrl;
+
+    @Column
+    private String imageUrl;
+
+    @Enumerated(EnumType.STRING)
+    private Language language;
 }
