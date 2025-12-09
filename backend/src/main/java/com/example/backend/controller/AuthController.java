@@ -9,15 +9,17 @@ import com.example.backend.dto.auth.local.LocalResisterRequest;
 import com.example.backend.dto.auth.naver.NaverUserInfoResponse;
 import com.example.backend.entity.user.User;
 import com.example.backend.entity.user.enumeration.AuthProvider;
-import lombok.extern.slf4j.Slf4j;
 import com.example.backend.entity.user.enumeration.Language;
+import com.example.backend.security.CookieUtil;
 import com.example.backend.security.CustomUserDetails;
-import com.example.backend.security.CustomUserDetailsService;
-import com.example.backend.security.JwtProvider;
+import com.example.backend.service.AuthService;
 import com.example.backend.service.UserService;
 import com.example.backend.service.auth.GoogleService;
 import com.example.backend.service.auth.NaverService;
-import jakarta.servlet.http.Cookie;
+import com.example.backend.service.auth.utility.GoogleOAuthProviderProperties;
+import com.example.backend.service.auth.utility.GoogleOAuthRegistrationProperties;
+import com.example.backend.service.auth.utility.NaverOAuthProviderProperties;
+import com.example.backend.service.auth.utility.NaverOAuthRegistrationProperties;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,18 +32,24 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.util.UUID;
+
 @Slf4j @RequiredArgsConstructor
 @RestController @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final CustomUserDetailsService customUserDetailsService;
-    private final JwtProvider jwtProvider;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
 
+    private final AuthService authService;
     private final UserService userService;
     private final NaverService naverService;
     private final GoogleService googleService;
+    private final NaverOAuthRegistrationProperties naverOAuthRegistrationProperties;
+    private final NaverOAuthProviderProperties naverOAuthProviderProperties;
+    private final GoogleOAuthRegistrationProperties googleOAuthRegistrationProperties;
+    private final GoogleOAuthProviderProperties googleOAuthProviderProperties;
 
 
     // ***** <<<<<RESISTER>>>>> ***** //
@@ -59,44 +67,66 @@ public class AuthController {
 
     // ***** <<<<<LOGIN>>>>> ***** //
 
+    // ***** NAVER OAuth Authorization ***** //
+    @GetMapping("/login/naver")
+    public void loginByNaver(HttpServletResponse response) throws IOException {
+        String state = UUID.randomUUID().toString();
+        String authorizationUrl = naverOAuthProviderProperties.getAuthorizationUri()
+                + "?response_type=code"
+                + "&client_id=" + naverOAuthRegistrationProperties.getClientId()
+                + "&redirect_uri=" + naverOAuthRegistrationProperties.getRedirectUri()
+                + "&state=" + state;
+
+        log.info("Naver OAuth 인가 요청: {}", authorizationUrl);
+        response.sendRedirect(authorizationUrl);
+    }
+
+    // ***** GOOGLE OAuth Authorization ***** //
+    @GetMapping("/login/google")
+    public void loginByGoogle(HttpServletResponse response) throws IOException {
+        String state = UUID.randomUUID().toString();
+        String scope = String.join(" ", googleOAuthRegistrationProperties.getScope());
+        String authorizationUrl = googleOAuthProviderProperties.getAuthorizationUri()
+                + "?response_type=code"
+                + "&client_id=" + googleOAuthRegistrationProperties.getClientId()
+                + "&redirect_uri=" + googleOAuthRegistrationProperties.getRedirectUri()
+                + "&scope=" + scope
+                + "&state=" + state;
+
+        log.info("Google OAuth 인가 요청: {}", authorizationUrl);
+        response.sendRedirect(authorizationUrl);
+    }
+
     // ***** LOCAL ***** //
     @PostMapping("/login/local")
     public ResponseEntity<?> loginByLocal(@RequestBody LocalLoginRequest dto, HttpServletResponse response) throws Exception {
         String email = dto.getEmail();
         String password = dto.getPassword();
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email,password));
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, password));
 
-        if(!userService.checkAuthProvider(email, AuthProvider.LOCAL)) {
+        if (!userService.checkAuthProvider(email, AuthProvider.LOCAL)) {
             throw new IllegalAccessException("다른 방식으로 가입된 회원입니다.");
         }
 
-        CustomUserDetails userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(email);
-        String token = jwtProvider.tokenProvide(userDetails);
+        String token = authService.generateToken(email);
+        CookieUtil.addAccessToken(response, token);
 
-        Cookie cookie = new Cookie("ACCESS_TOKEN", token);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        cookie.setMaxAge(3600);
+        log.info("Local 로그인 성공: {}", email);
 
-        response.addCookie(cookie);
-
-        log.info("✅ Local 로그인 성공: {}", email);
-
-        // 사용자 정보도 함께 반환
         AuthMyInfoResponse userInfo = userService.getUserByEmail(email);
         return ResponseController.success(userInfo);
     }
 
-    // ***** NAVER ***** //
+    // ***** NAVER Callback ***** //
     @GetMapping("/callback/naver")
-    public ResponseEntity<?> callbackByNaver (
+    public ResponseEntity<?> callbackByNaver(
             @RequestParam String code,
             @RequestParam String state,
             @RequestParam(required = false) String error,
             @RequestParam(required = false, name = "error_description") String errorDescription,
             HttpServletResponse response) throws Exception {
 
-        if(StringUtils.hasText(error) || StringUtils.hasText(errorDescription)) {
+        if (StringUtils.hasText(error) || StringUtils.hasText(errorDescription)) {
             throw new IllegalAccessException("fail login with naver");
         }
 
@@ -107,75 +137,49 @@ public class AuthController {
 
         User user = userService.createUser(email, username, null, AuthProvider.NAVER, Language.KO);
 
-        CustomUserDetails userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(user.getEmail());
-        String jwtToken = jwtProvider.tokenProvide(userDetails);
+        String token = authService.generateToken(user.getEmail());
+        CookieUtil.addAccessToken(response, token);
 
-        // 쿠키 설정
-        Cookie cookie = new Cookie("ACCESS_TOKEN", jwtToken);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(3600);
-        cookie.setSecure(false); // 개발환경
-        response.addCookie(cookie);
+        log.info("Naver OAuth 콜백 완료: {}", email);
 
-        log.info("✅ Naver OAuth 콜백 완료");
-        log.info("Email: {}", email);
-        log.info("Token: {}...", jwtToken.substring(0, Math.min(30, jwtToken.length())));
-
-        // 프론트엔드로 리다이렉트
-        response.sendRedirect("http://localhost:5173");
+        response.sendRedirect("http://localhost:3000");
         return null;
     }
 
-    // ***** GOOGLE ***** //
+    // ***** GOOGLE Callback ***** //
     @GetMapping("/callback/google")
-    public ResponseEntity<?> callbackByGoogle (
+    public ResponseEntity<?> callbackByGoogle(
             @RequestParam String code,
             @RequestParam String state,
             @RequestParam(required = false) String error,
             @RequestParam(required = false, name = "error_description") String errorDescription,
             HttpServletResponse response) throws Exception {
 
-        if(StringUtils.hasText(error) || StringUtils.hasText(errorDescription)) {
+        if (StringUtils.hasText(error) || StringUtils.hasText(errorDescription)) {
             throw new IllegalAccessException("fail login with google");
         }
 
         GoogleUserInfoResponse userInfoResponse = googleService.getUsernameAndEmailAndLocale(code, state);
 
         String email = userInfoResponse.getEmail();
-        String username = userInfoResponse.getName(); // Google은 'name' 필드를 사용합니다.
+        String username = userInfoResponse.getName();
         Language language = Language.fromLocale(userInfoResponse.getLocale());
 
         User user = userService.createUser(email, username, null, AuthProvider.GOOGLE, language);
 
-        CustomUserDetails userDetails = (CustomUserDetails) customUserDetailsService.loadUserByUsername(user.getEmail());
-        String jwtToken = jwtProvider.tokenProvide(userDetails);
+        String token = authService.generateToken(user.getEmail());
+        CookieUtil.addAccessToken(response, token);
 
-        // 쿠키 설정
-        Cookie cookie = new Cookie("ACCESS_TOKEN", jwtToken);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(3600);
-        cookie.setSecure(false);
-        response.addCookie(cookie);
+        log.info("Google OAuth 콜백 완료: {}", email);
 
-        log.info("✅ Google OAuth 콜백 완료");
-        log.info("Email: {}", email);
-        log.info("Token: {}...", jwtToken.substring(0, Math.min(30, jwtToken.length())));
-
-        response.sendRedirect("http://localhost:5173");
+        response.sendRedirect("http://localhost:3000");
         return null;
     }
 
     // ***** <<<<<LOGOUT>>>>> ***** //
     @DeleteMapping("/logout")
     public ResponseEntity<?> logout(@AuthenticationPrincipal CustomUserDetails userDetails, HttpServletResponse response) throws Exception {
-        Cookie cookie = new Cookie("ACCESS_TOKEN", null);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-
-        response.addCookie(cookie);
+        CookieUtil.clearAccessToken(response);
         return ResponseController.success(null);
     }
 

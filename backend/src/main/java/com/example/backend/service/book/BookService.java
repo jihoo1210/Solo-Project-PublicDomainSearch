@@ -1,6 +1,5 @@
 package com.example.backend.service.book;
 
-import com.example.backend.dto.book.BookDetailResponse;
 import com.example.backend.dto.book.IndexBookResponse;
 import com.example.backend.dto.book.gutendex.GutendexBooksResponse;
 import com.example.backend.dto.book.gutendex.GutendexDocumentDto;
@@ -17,7 +16,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import java.time.Duration;
 import java.util.List;
@@ -62,7 +60,7 @@ public class BookService {
                     !dto.isCopyright() &&
                     !bookRepository.existsById(dto.getId())) {
                 Book book = Book.builder()
-                        .Id(dto.getId())
+                        .id(dto.getId())
                         .title(dto.getTitle())
                         .author(dto.getAuthors().get(0).getName())
                         .downloadUrl(dto.getFormats().getEpubUrl())

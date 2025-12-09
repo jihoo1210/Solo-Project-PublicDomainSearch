@@ -6,7 +6,9 @@ import com.example.backend.entity.user.User;
 import com.example.backend.entity.user.enumeration.AuthProvider;
 import com.example.backend.entity.user.enumeration.Language;
 import com.example.backend.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public User createUser(String email, String username, String password, AuthProvider auth, Language language) {
         if(userRepository.existsByEmail(email)) {
@@ -30,8 +33,8 @@ public class UserService {
         return false;
     }
 
-    public AuthMyInfoResponse getUserByEmail(String username) {
-        User user = userRepository.findByEmail(username).orElse(null);
+    public AuthMyInfoResponse getUserByEmail(String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
         if(user == null) return null;
         return AuthMyInfoResponse.builder()
                 .email(user.getEmail())
@@ -40,11 +43,12 @@ public class UserService {
                 .build();
     }
 
+    @Transactional
     public void resetPassword(String email, AuthResetPasswordRequest dto) {
         User user = userRepository.findByEmail(email).orElse(null);
-        if(user != null) {
-            user.setPassword(dto.getPassword());
-            userRepository.save(user);
+        if(user == null || !user.getAuthProvider().equals(AuthProvider.LOCAL)) {
+            return;
         }
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
     }
 }
