@@ -17,6 +17,7 @@ const Navigation = () => {
         { label: '전체', path: '/list' },
         { label: '조회', path: '/search' },
         { label: '문의', path: '/contact' },
+        { label: '결제', path: '/checkout'}
     ]
 
     useEffect(() => {
@@ -160,17 +161,17 @@ const Navigation = () => {
                                     color: 'white',
                                     borderColor: 'rgba(255,255,255,0.5)',
                                 }}
-                                onClick={() => navigate('/signup')}
+                                onClick={() => isLoggedIn ? logout() : navigate('/signup')}
                             >
-                                회원가입
+                                {isLoggedIn ? '로그아웃' : '회원가입'}
                             </Button>
                             <Button
                                 variant="contained"
                                 color="secondary"
                                 size="small"
-                                onClick={() => navigate('/login')}
+                                onClick={() => isLoggedIn ? navigate('/mypage') : navigate('/login')}
                             >
-                                로그인
+                                {isLoggedIn ? '마이페이지' : '로그인'}
                             </Button>
                         </Box>
 

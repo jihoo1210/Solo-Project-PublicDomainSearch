@@ -1,9 +1,11 @@
 import React from 'react'
 import { Box, Container, Typography, Button, Grid } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
 
 // 레이아웃 3: 풀스크린 히어로 + 그리드 섹션
 const Layout3 = ({ children }) => {
 
+  const navigate = useNavigate();
 
   return (
     <Box>
@@ -26,8 +28,8 @@ const Layout3 = ({ children }) => {
             시대를 초월한 고전을 경험하세요.
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button variant="contained" color="secondary" size="large">무료 시작</Button>
-              <Button variant="outlined" sx={{ color: 'white', borderColor: 'white' }} size="large">자세히 보기</Button>
+              <Button type='button' variant="contained" color="secondary" size="large" onClick={() => navigate('/search')}>조회하기</Button>
+              <Button type='button' variant="outlined" sx={{ color: 'white', borderColor: 'white' }} size="large" onClick={() => navigate('/list')}>전체보기</Button>
             </Box>
           </Box>
         </Container>

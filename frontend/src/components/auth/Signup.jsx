@@ -1,24 +1,24 @@
 import React, { useState } from 'react'
-import { Box, TextField, Button, Typography, Link, Grid, Divider } from '@mui/material'
+import { Box, TextField, Button, Typography, Link, Grid, Divider, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 import GoogleIcon from '@mui/icons-material/Google'
 import { validateAndExecute } from '../../util/Handle'
 import { useUser } from '../../contexts/UserContext'
 import { useNavigate } from 'react-router-dom'
+import axiosApi from '../../api/AxiosApi'
 
 const Signup = () => {
-  const [form, setForm] = useState({ email: '', password: '' })
-  const { login } = useUser();
+  const [formData, setFormData] = useState({ email: '', username: '', password: '', language: 'ko' })
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
     
-    validateAndExecute(FormData, (data) => {
-        login(data)
+    validateAndExecute(formData, (data) => {
+        axiosApi.post('/auth/resister/local', data)
         navigate("/")
     })
   }
@@ -60,6 +60,7 @@ const Signup = () => {
           alignItems: 'center',
           justifyContent: 'center',
           p: 4,
+          mt: 6
         }}
       >
         <Box sx={{ width: '100%', maxWidth: 400 }}>
@@ -76,7 +77,17 @@ const Signup = () => {
               label="이메일"
               name="email"
               type="email"
-              value={form.email}
+              value={formData.email}
+              onChange={handleChange}
+              margin="normal"
+              variant="outlined"
+            />
+            <TextField
+              fullWidth
+              label="사용자명"
+              name="username"
+              type="text"
+              value={formData.username}
               onChange={handleChange}
               margin="normal"
               variant="outlined"
@@ -86,15 +97,23 @@ const Signup = () => {
               label="비밀번호"
               name="password"
               type="password"
-              value={form.password}
+              value={formData.password}
               onChange={handleChange}
               margin="normal"
               variant="outlined"
             />
-
-            <Box sx={{ textAlign: 'right', mt: 1 }}>
-              <Link component="button" variant="body2" onClick={(e) => {e.preventDefault(); navigate('/reset-password')}}>비밀번호 찾기</Link>
-            </Box>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>언어</InputLabel>
+              <Select
+                name="language"
+                value={formData.language}
+                onChange={handleChange}
+                label="언어"
+              >
+                <MenuItem value="ko">한국어</MenuItem>
+                <MenuItem value="en">English</MenuItem>
+              </Select>
+            </FormControl>
 
             <Button
               type="submit"

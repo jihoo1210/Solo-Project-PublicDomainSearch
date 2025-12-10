@@ -21,21 +21,9 @@ public class ExceptionController {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ResponseDto<?>> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
-        log.error("Validation error occurred", e);
+        log.error("Validation error occurred", e.getMessage());
 
-        Map<String, String> errors = new HashMap<>();
-        e.getBindingResult().getFieldErrors().forEach(error -> {
-            String fieldName = error.getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
-        });
-
-        ResponseDto<?> response = ResponseDto.builder()
-                .message("유효성 검사 실패")
-                .result(errors)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return ResponseController.fail(e);
     }
 
     /**
@@ -43,13 +31,9 @@ public class ExceptionController {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ResponseDto<?>> handleException(Exception e) {
-        log.error("Unexpected error occurred", e);
+        log.error("Unexpected error occurred", e.getMessage());
 
-        ResponseDto<?> response = ResponseDto.builder()
-                .message(e.getMessage() != null ? e.getMessage() : "서버 오류가 발생했습니다")
-                .build();
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        return ResponseController.fail(e);
     }
 
     /**
@@ -57,13 +41,9 @@ public class ExceptionController {
      */
     @ExceptionHandler(IllegalAccessException.class)
     public ResponseEntity<ResponseDto<?>> handleIllegalAccessException(IllegalAccessException e) {
-        log.error("Access error occurred", e);
+        log.error("Access error occurred", e.getMessage());
 
-        ResponseDto<?> response = ResponseDto.builder()
-                .message(e.getMessage())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        return ResponseController.fail(e);
     }
 
     /**
@@ -71,13 +51,9 @@ public class ExceptionController {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ResponseDto<?>> handleIllegalArgumentException(IllegalArgumentException e) {
-        log.error("Invalid argument error occurred", e);
+        log.error("Invalid argument error occurred", e.getMessage());
 
-        ResponseDto<?> response = ResponseDto.builder()
-                .message(e.getMessage())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return ResponseController.fail(e);
     }
 }
 

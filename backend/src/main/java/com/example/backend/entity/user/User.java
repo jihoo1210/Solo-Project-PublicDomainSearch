@@ -1,6 +1,7 @@
 package com.example.backend.entity.user;
 
 import com.example.backend.entity.book.FavoriteBook;
+import com.example.backend.entity.book.ReadingProgress;
 import com.example.backend.entity.book.RecentBook;
 import com.example.backend.entity.user.enumeration.AuthProvider;
 import com.example.backend.entity.user.enumeration.Language;
@@ -53,6 +54,9 @@ public class User extends BaseEntity {
     @Builder.Default
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RecentBook> recentBookList = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReadingProgress> readingProgressList;
 
     public static User createUser(AuthProvider authProvider, String email, String username, String password, Language language) {
         return User.builder()

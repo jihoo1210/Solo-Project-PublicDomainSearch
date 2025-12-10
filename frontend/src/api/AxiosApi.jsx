@@ -6,7 +6,7 @@ export const axiosApi = axios.create({
         'Content-Type': 'application/json',
     },
     withCredentials: true, // 쿠키 전송 설정
-    timeout: 10000, // 요청 타임아웃 설정
+    timeout: 50000, // 요청 타임아웃 설정
 });
 
 axiosApi.interceptors.response.use((response) => { // 응답 인터셉터

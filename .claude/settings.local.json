@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n프론트엔드 React 구조 개편 및 백엔드 OAuth 리팩토링\n\n- Backend: OAuth 로그인 로직 분리 (AuthService, CookieUtil 추가)\n- Backend: Entity JPA 매핑 최적화 (FetchType.LAZY, @JoinColumn 추가)\n- Backend: S3 업로드 Presigned URL 방식으로 변경\n- Frontend: Material UI 기반 컴포넌트 구조화\n- Frontend: 인증 컨텍스트 및 API 레이어 추가\n- Frontend: 다크모드 테마 시스템 적용\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(echo.)",
+      "Bash(git commit -m \"$(cat <<''EOF''\n읽기 진행 저장 기능 및 목차 파싱 개선\n\n- Backend: ReadingProgress 엔티티 및 API 추가 (저장/조회/삭제)\n- Backend: 목차 파싱 시 연속 빈 줄 기준 3줄로 변경 (긴 목차 지원)\n- Backend: 챕터-페이지 매핑 로직 개선 (문단 시작 우선 검색)\n- Frontend: BookDetail 읽기 진행 저장 (로그인: 서버, 비로그인: localStorage)\n- Frontend: 이어읽기 알림 Snackbar 추가\n- Frontend: 본문 배경색 베이지(#f5e6c8)로 변경\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")"
+    ]
+  }
+}

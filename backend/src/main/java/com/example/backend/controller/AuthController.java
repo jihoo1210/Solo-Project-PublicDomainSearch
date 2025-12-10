@@ -7,6 +7,7 @@ import com.example.backend.dto.auth.google.GoogleUserInfoResponse;
 import com.example.backend.dto.auth.local.LocalLoginRequest;
 import com.example.backend.dto.auth.local.LocalResisterRequest;
 import com.example.backend.dto.auth.naver.NaverUserInfoResponse;
+import com.example.backend.dto.utility.ResponseDto;
 import com.example.backend.entity.user.User;
 import com.example.backend.entity.user.enumeration.AuthProvider;
 import com.example.backend.entity.user.enumeration.Language;
@@ -178,20 +179,20 @@ public class AuthController {
 
     // ***** <<<<<LOGOUT>>>>> ***** //
     @DeleteMapping("/logout")
-    public ResponseEntity<?> logout(@AuthenticationPrincipal CustomUserDetails userDetails, HttpServletResponse response) throws Exception {
+    public ResponseEntity<?> logout(HttpServletResponse response) {
         CookieUtil.clearAccessToken(response);
         return ResponseController.success(null);
     }
 
     // ***** <<<<<UTILITY>>>>> ***** //
     @GetMapping("/myInfo")
-    public ResponseEntity<?> getMyInfo(@AuthenticationPrincipal CustomUserDetails userDetails) throws Exception {
+    public ResponseEntity<?> getMyInfo(@AuthenticationPrincipal CustomUserDetails userDetails) {
         AuthMyInfoResponse user = userService.getUserByEmail(userDetails.getUsername());
         return ResponseController.success(user);
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@AuthenticationPrincipal CustomUserDetails userDetails, @Valid @RequestBody AuthResetPasswordRequest dto) throws Exception {
+    public ResponseEntity<?> resetPassword(@AuthenticationPrincipal CustomUserDetails userDetails, @Valid @RequestBody AuthResetPasswordRequest dto) {
         String email = userDetails.getUsername();
         userService.resetPassword(email, dto);
         return ResponseController.success("Password reset link has been sent to your email.");

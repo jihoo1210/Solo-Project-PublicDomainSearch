@@ -2,6 +2,7 @@ package com.example.backend.service.book;
 
 import com.example.backend.dto.book.gutendex.GutendexDocumentDto;
 import com.example.backend.dto.book.gutendex.GutendexSentenceDto;
+import com.example.backend.dto.book.gutendex.TocEntry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -16,14 +17,14 @@ public class ParseToJsonService {
 
     private static final String START = "\\*\\*\\* START OF THE PROJECT GUTENBERG EBOOK .*? \\*\\*\\*";
     private static final String END = "\\*\\*\\* END OF THE PROJECT GUTENBERG EBOOK .*? \\*\\*\\*";
-    private static final String START_TOC = "(?i)CONTENTS[\\s\\S]*?";
+    private static final String START_TOC = "CONTENTS[\\s\\S]*?";
     private static final Pattern SENTENCE_PATTERN =  Pattern.compile("(?<=([.!?])\\s)");
 
     public GutendexDocumentDto convertTextToDocumentDto(String textContent, String title) {
         // 실제 내용 추출
         String coreContent = extractCoreContent(textContent);
         // 목차 분리
-        List<String> tableOfContent = extractAndProcessTOC(coreContent);
+        List<TocEntry> tableOfContent = extractAndProcessTOC(coreContent);
         // 본문 분리
         String bodyContent = removeTOC(coreContent);
         List<GutendexSentenceDto> sentences = processBodyContent(bodyContent);
@@ -57,8 +58,8 @@ public class ParseToJsonService {
         return textContent;
     }
 
-    private List<String> extractAndProcessTOC(String coreContent) {
-        List<String> tocList = new ArrayList<>();
+    private List<TocEntry> extractAndProcessTOC(String coreContent) {
+        List<TocEntry> tocList = new ArrayList<>();
         Pattern pattern = Pattern.compile(START_TOC);
         Matcher matcher = pattern.matcher(coreContent);
 
@@ -73,35 +74,88 @@ public class ParseToJsonService {
         String[] lines = afterTocStart.split("\r?\n");
         int consecutiveEmptyLines = 0;
         boolean inTocSection = false;
-        for(String line : lines) {
+
+        // 로마숫자 + . + 특수문자 + 제목 패턴 (예: I.—Loomings, II.—The Carpet Bag)
+        Pattern romanPattern = Pattern.compile("^\\s*([IVXLCDM]+)\\.?[—\\-–](.+)$");
+        // 일반 숫자 + . + 제목 패턴 (예: 1. Chapter One)
+        Pattern numberPattern = Pattern.compile("^\\s*(\\d+)\\.\\s*(.+)$");
+        // CHAPTER + 숫자/로마숫자 패턴 (예: CHAPTER I, CHAPTER 1)
+        Pattern chapterPattern = Pattern.compile("^\\s*(CHAPTER\\s+[IVXLCDM0-9]+)[\\.\\s—\\-–]*(.*)$", Pattern.CASE_INSENSITIVE);
+
+        for (String line : lines) {
             String trimmedLine = line.trim();
 
             if (trimmedLine.isEmpty()) {
-                // 빈 줄이 나오면 카운터를 증가시킵니다.
                 consecutiveEmptyLines++;
             } else {
-                // 내용이 있는 줄이 나오면 카운터를 초기화합니다.
                 consecutiveEmptyLines = 0;
-
-                // 목차 본문이 시작되었음을 표시
                 inTocSection = true;
             }
 
-            if (consecutiveEmptyLines >= 2 && inTocSection) {
-                break; // 반복문 종료
+            // 연속 빈 줄 3줄 이상이면 목차 끝으로 판단 (긴 목차 지원)
+            if (consecutiveEmptyLines >= 3 && inTocSection) {
+                break;
             }
-            if (consecutiveEmptyLines == 0 && inTocSection) {
 
-                if (trimmedLine.matches("\\.+")) {
+            if (consecutiveEmptyLines == 0 && inTocSection) {
+                // 점만 있는 줄 건너뛰기
+                if (trimmedLine.matches("[\\.\\s]+")) {
                     continue;
                 }
-                // 항목 끝의 마침표(.)를 기준으로 제목만 추출하는 로직 (원본 코드 유지)
-                int dotIdx = trimmedLine.indexOf(".");
-                if(dotIdx > 0) {
-                    // 숫자가 아닌 글자만 포함하는 경우를 위해 trim() 처리
-                    tocList.add(trimmedLine.substring(0, dotIdx).trim());
-                } else {
-                    tocList.add(trimmedLine);
+
+                String title = null;
+                String chapterKey = null;
+
+                // 1. 로마숫자 패턴 확인 (I.—Loomings)
+                Matcher romanMatcher = romanPattern.matcher(trimmedLine);
+                if (romanMatcher.find()) {
+                    String romanNum = romanMatcher.group(1);
+                    String chapterTitle = romanMatcher.group(2).trim();
+                    title = romanNum + ". " + chapterTitle;
+                    chapterKey = chapterTitle.replaceAll("[^a-zA-Z0-9\\s]", "").trim().toUpperCase();
+                }
+
+                // 2. CHAPTER 패턴 확인
+                if (title == null) {
+                    Matcher chapterMatcher = chapterPattern.matcher(trimmedLine);
+                    if (chapterMatcher.find()) {
+                        String chapterNum = chapterMatcher.group(1).trim();
+                        String chapterTitle = chapterMatcher.group(2).trim();
+                        title = chapterNum + (chapterTitle.isEmpty() ? "" : " - " + chapterTitle);
+                        chapterKey = (chapterNum + " " + chapterTitle).replaceAll("[^a-zA-Z0-9\\s]", "").trim().toUpperCase();
+                    }
+                }
+
+                // 3. 일반 숫자 패턴 확인 (1. Title)
+                if (title == null) {
+                    Matcher numberMatcher = numberPattern.matcher(trimmedLine);
+                    if (numberMatcher.find()) {
+                        String num = numberMatcher.group(1);
+                        String chapterTitle = numberMatcher.group(2).trim();
+                        title = num + ". " + chapterTitle;
+                        chapterKey = chapterTitle.replaceAll("[^a-zA-Z0-9\\s]", "").trim().toUpperCase();
+                    }
+                }
+
+                // 4. 기타 형식 (. 기준 분리)
+                if (title == null) {
+                    int dotIdx = trimmedLine.indexOf(".");
+                    if (dotIdx > 0) {
+                        title = trimmedLine.substring(0, dotIdx).trim();
+                        String afterDot = trimmedLine.substring(dotIdx + 1).trim();
+                        chapterKey = afterDot.replaceAll("[^a-zA-Z0-9\\s]", "").trim().toUpperCase();
+                    } else {
+                        title = trimmedLine;
+                        chapterKey = trimmedLine.replaceAll("[^a-zA-Z0-9\\s]", "").trim().toUpperCase();
+                    }
+                }
+
+                if (chapterKey != null && !chapterKey.isEmpty()) {
+                    tocList.add(TocEntry.builder()
+                            .title(title)
+                            .chapterKey(chapterKey)
+                            .build());
+                    log.debug("TOC Entry - title: {}, chapterKey: {}", title, chapterKey);
                 }
             }
         }
@@ -116,17 +170,18 @@ public class ParseToJsonService {
             return coreContent;
         }
 
-        int tocStartIdx = matcher.end();
-        String afterTocStart = coreContent.substring(tocStartIdx);
+        int tocStartIdx = matcher.start(); // CONTENTS 시작 위치
+        String beforeToc = coreContent.substring(0, tocStartIdx);
 
+        String afterTocStart = coreContent.substring(matcher.end());
         String[] lines = afterTocStart.split("\r?\n");
 
         int consecutiveEmptyLines = 0;
         boolean inTocSection = false;
-        int endLineIndex = -1;
+        int charCount = 0;
 
-        for (int i = 0; i < lines.length; i++) {
-            String trimmed = lines[i].trim();
+        for (String line : lines) {
+            String trimmed = line.trim();
 
             if (trimmed.isEmpty()) {
                 consecutiveEmptyLines++;
@@ -135,17 +190,16 @@ public class ParseToJsonService {
                 inTocSection = true;
             }
 
-            if (inTocSection && consecutiveEmptyLines >= 2) {
-                endLineIndex = i + 1;
+            charCount += line.length() + 1; // +1 for newline
+
+            // 연속 빈 줄 3줄 이상이면 목차 끝으로 판단 (긴 목차 지원)
+            if (inTocSection && consecutiveEmptyLines >= 3) {
                 break;
             }
         }
 
-        if (endLineIndex < 0) {
-            return coreContent;
-        }
-
-        return coreContent.substring(tocStartIdx + endLineIndex);
+        String afterToc = afterTocStart.substring(Math.min(charCount, afterTocStart.length()));
+        return beforeToc.trim() + "\n\n" + afterToc.trim();
     }
 
 

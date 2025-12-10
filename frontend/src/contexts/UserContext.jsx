@@ -8,7 +8,7 @@ export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
 
     const login = async (userData) => {
-        const data = await axiosApi.post('/auth/login', userData);
+        const data = await axiosApi.post('/auth/login/local', userData);
         if(data) {
             setIsLoggedIn(true);
             setUser(data?.email);
@@ -18,14 +18,16 @@ export const UserProvider = ({ children }) => {
     const logout = () => {
         setIsLoggedIn(false);
         setUser(null);
-        axiosApi.post('/auth/logout');
+        axiosApi.delete('/auth/logout');
     }
 
     const checkInfo = async () => {
         try {
             const responseData = await axiosApi.get('/auth/myInfo');
-            setIsLoggedIn(true);
-            setUser(responseData);
+            if(responseData) {
+                setIsLoggedIn(true);
+                setUser(responseData);
+            }
         } catch (error) {
             setIsLoggedIn(false);
             setUser(null);
@@ -35,6 +37,12 @@ export const UserProvider = ({ children }) => {
     useEffect(() => {
         checkInfo();
     }, []);
+
+    // 디버깅용: 상태 변화 확인
+    useEffect(() => {
+        console.log('isLoggedIn 변경:', isLoggedIn);
+        console.log('user 변경:', user);
+    }, [isLoggedIn, user]);
 
     const contextValue = {
         isLoggedIn,

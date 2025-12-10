@@ -9,7 +9,6 @@ import java.util.List;
 @Value
 public class GutendexDocumentDto {
     String title;
-    List<String> tableOfContent;
+    List<TocEntry> tableOfContent;
     List<GutendexSentenceDto> sentences;
-
 }

@@ -9,6 +9,11 @@ import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import ResetPassword from './components/auth/ResetPassword';
 import BookSearch from './components/book/BookSearch';
+import BookDetail from './components/book/BookDetail';
+import BookAll from './components/book/BookAll';
+import { CheckoutPage } from './components/pay/CheckoutPage';
+import { SuccessPage } from './components/pay/SuccessPage';
+import { FailPage } from './components/pay/FaliPage';
 
 function App() {
   return (
@@ -26,6 +31,12 @@ function App() {
                 <Route path='/reset-password' element={<ResetPassword />} />
 
                 <Route path='/search' element={<BookSearch />} />
+                <Route path='/list' element={<BookAll />} />
+                <Route path='/books/:bookId' element={<BookDetail />} />
+
+                <Route path='/checkout' element={<CheckoutPage />} />
+                <Route path='/success' element={<SuccessPage />} />
+                <Route path='/fail' element={<FailPage />} />
               </Routes>
             </Box>
             {/* Footer 추가 예정 */}

@@ -6,18 +6,18 @@ import { useUser } from '../../contexts/UserContext'
 import { useNavigate } from 'react-router-dom'
 
 const Login = () => {
-  const [form, setForm] = useState({ email: '', password: '' })
-  const { login } = useUser();
+  const [formData, setFormData] = useState({ email: '', password: '' })
+  const { login, checkInfo } = useUser();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
     
-    validateAndExecute(FormData, (data) => {
+    validateAndExecute(formData, (data) => {
         login(data)
         navigate("/")
     })
@@ -25,10 +25,12 @@ const Login = () => {
 
   const handleGoogleLogin = () => {
     window.location.href = `${process.env.REACT_APP_API_URL}/auth/login/google`
+    checkInfo()
   }
 
   const handleNaverLogin = () => {
     window.location.href = `${process.env.REACT_APP_API_URL}/auth/login/naver`
+    checkInfo()
   }
 
   return (
@@ -76,7 +78,7 @@ const Login = () => {
               label="이메일"
               name="email"
               type="email"
-              value={form.email}
+              value={formData.email}
               onChange={handleChange}
               margin="normal"
               variant="outlined"
@@ -86,7 +88,7 @@ const Login = () => {
               label="비밀번호"
               name="password"
               type="password"
-              value={form.password}
+              value={formData.password}
               onChange={handleChange}
               margin="normal"
               variant="outlined"

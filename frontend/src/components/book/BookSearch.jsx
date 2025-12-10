@@ -1,9 +1,14 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Box, Container, Typography, TextField, Paper, Chip, List, ListItem, ListItemText, Avatar, Button, Grid, Card, CardContent, CardMedia, CircularProgress } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
+import { useNavigate } from 'react-router-dom'
 import axiosApi from '../../api/AxiosApi'
 
+const RECENT_SEARCHES_KEY = 'recentSearches'
+const MAX_RECENT_SEARCHES = 3
+
 const BookSearch = () => {
+  const navigate = useNavigate()
   const [keyword, setKeyword] = useState('')
   const [isFocused, setIsFocused] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(null)
@@ -12,26 +17,76 @@ const BookSearch = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [nextUrl, setNextUrl] = useState(null)
   const resultsRef = useRef(null)
+  const [recentSearches, setRecentSearches] = useState([])
 
-  const suggestions = [
-    { type: 'recent', text: 'Pride and Prejudice' },
-    { type: 'recent', text: 'Sherlock Holmes' },
-    { type: 'popular', text: 'Jane Austen' },
-    { type: 'popular', text: 'Charles Dickens' },
-    { type: 'popular', text: 'Mark Twain' },
-  ]
+  const popularSearches = ['Jane Austen', 'Charles Dickens', 'Mark Twain']
 
   const categories = ['Fiction', 'Poetry', 'Drama', 'Philosophy', 'History']
 
-  const handleSearch = async () => {
-    const query = keyword.trim()
-    if (!query) return
+  // sessionStorage에서 최근 검색어 불러오기
+  useEffect(() => {
+    const saved = sessionStorage.getItem(RECENT_SEARCHES_KEY)
+    if (saved) {
+      setRecentSearches(JSON.parse(saved))
+    }
+  }, [])
+
+  // 최근 검색어 저장 함수
+  const saveRecentSearch = (query) => {
+    const trimmed = query.trim()
+    if (!trimmed) return
+
+    setRecentSearches(prev => {
+      const filtered = prev.filter(item => item !== trimmed)
+      const updated = [trimmed, ...filtered].slice(0, MAX_RECENT_SEARCHES)
+      sessionStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated))
+      return updated
+    })
+  }
+
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [autocompleteData, setAutocompleteData] = useState([])
+  const [filteredSuggestions, setFilteredSuggestions] = useState([])
+
+  useEffect(() => {
+    const fetchAutocomplete = async () => {
+      try {
+        const data = await axiosApi.get('/users/books/autocomplete')
+        setAutocompleteData(data.items || [])
+      } catch (error) {
+        console.error('자동완성 데이터 로드 실패:', error)
+      }
+    }
+    fetchAutocomplete()
+  }, [])
+
+  useEffect(() => {
+    if (keyword.trim() && autocompleteData.length > 0) {
+      const query = keyword.toLowerCase()
+      const filtered = autocompleteData.filter(item =>
+        item.title.toLowerCase().includes(query) ||
+        item.author.toLowerCase().includes(query)
+      ).slice(0, 8)
+      setFilteredSuggestions(filtered)
+    } else {
+      setFilteredSuggestions([])
+    }
+  }, [keyword, autocompleteData])
+
+  const executeSearch = async (query) => {
+    const trimmed = query.trim()
+    if (!trimmed) return
 
     setIsLoading(true)
+    saveRecentSearch(trimmed)
     try {
-      const data = await axiosApi.get(`/users/books?query=${encodeURIComponent(query)}`)
+      let url = `/users/books?query=${encodeURIComponent(trimmed)}`
+      if (selectedCategory) {
+        url += `&topic=${encodeURIComponent(selectedCategory.toLowerCase())}`
+      }
+      const data = await axiosApi.get(url)
       setSearchResults(data.bookDetails || [])
-      setNextUrl(data.nextUrl)
+      setNextUrl(data.nextUrl || null)
       setHasSearched(true)
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -41,6 +96,25 @@ const BookSearch = () => {
       setSearchResults([])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleSearch = () => {
+    executeSearch(keyword)
+  }
+
+  const handleLoadMore = async () => {
+    if (!nextUrl || isLoadingMore) return
+
+    setIsLoadingMore(true)
+    try {
+      const data = await axiosApi.get(`/users/books/next?nextUrl=${encodeURIComponent(nextUrl)}`)
+      setSearchResults(prev => [...prev, ...(data.bookDetails || [])])
+      setNextUrl(data.nextUrl || null)
+    } catch (error) {
+      console.error('더보기 실패:', error)
+    } finally {
+      setIsLoadingMore(false)
     }
   }
 
@@ -76,12 +150,13 @@ const BookSearch = () => {
           <Box sx={{ position: 'relative', maxWidth: 480, mx: 'auto' }}>
             <TextField
               fullWidth
-              placeholder="도서명, 저자명으로 검색..."
+              placeholder="영문 도서명, 저자명으로 검색..."
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setTimeout(() => setIsFocused(false), 200)}
               onKeyDown={handleKeyDown}
+              autoComplete="off"
               size="small"
               sx={{
                 '& .MuiOutlinedInput-root': {
@@ -89,6 +164,10 @@ const BookSearch = () => {
                   bgcolor: 'white',
                   boxShadow: 2,
                   '& fieldset': { border: 'none' },
+                },
+                '& .MuiInputBase-input': {
+                  caretColor: '#2D5A47',
+                  // caretWidth: 'thin',
                 },
               }}
               slotProps={{input: {
@@ -101,49 +180,47 @@ const BookSearch = () => {
             {isFocused && !keyword && (
               <Paper sx={{ position: 'absolute', top: '100%', left: 0, right: 0, mt: 1, zIndex: 10, boxShadow: 4, borderRadius: 2, opacity: '.9' }}>
                 <Box sx={{ p: 3 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>최근 검색어</Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
-                    {suggestions.filter(s => s.type === 'recent').map((s, i) => (
-                      <Chip
-                        key={i}
-                        label={s.text}
-                        size="small"
-                        variant="outlined"
-                        onClick={() => {
-                          setKeyword(s.text)
-                          setIsFocused(false)
-                          setHasSearched(true)
-                          setTimeout(() => {
-                            resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
-                          }, 100)
-                        }}
-                        sx={{
-                          borderColor: 'rgba(45, 90, 71, 0.5)',
-                          color: 'text.secondary',
-                          '&:hover': {
-                            bgcolor: 'rgba(45, 90, 71, 0.1)',
-                            borderColor: 'primary.main',
-                            color: 'primary.main'
-                          }
-                        }}
-                      />
-                    ))}
-                  </Box>
+                  {recentSearches.length > 0 && (
+                    <>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>최근 검색어</Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
+                        {recentSearches.map((text, i) => (
+                          <Chip
+                            key={i}
+                            label={text}
+                            size="small"
+                            variant="outlined"
+                            onClick={() => {
+                              setKeyword(text)
+                              setIsFocused(false)
+                              executeSearch(text)
+                            }}
+                            sx={{
+                              borderColor: 'rgba(45, 90, 71, 0.5)',
+                              color: 'text.secondary',
+                              '&:hover': {
+                                bgcolor: 'rgba(45, 90, 71, 0.1)',
+                                borderColor: 'primary.main',
+                                color: 'primary.main'
+                              }
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </>
+                  )}
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>인기 검색어</Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {suggestions.filter(s => s.type === 'popular').map((s, i) => (
+                    {popularSearches.map((text, i) => (
                       <Chip
                         key={i}
-                        label={s.text}
+                        label={text}
                         size="small"
                         variant="outlined"
                         onClick={() => {
-                          setKeyword(s.text)
+                          setKeyword(text)
                           setIsFocused(false)
-                          setHasSearched(true)
-                          setTimeout(() => {
-                            resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
-                          }, 100)
+                          executeSearch(text)
                         }}
                         sx={{
                           borderColor: 'rgba(230, 126, 34, 0.5)',
@@ -161,20 +238,17 @@ const BookSearch = () => {
               </Paper>
             )}
 
-            {/* 검색 결과 */}
-            {keyword && searchResults.length > 0 && isFocused && (
+            {/* 자동완성 결과 */}
+            {keyword && filteredSuggestions.length > 0 && isFocused && (
               <Paper sx={{ position: 'absolute', top: '100%', left: 0, right: 0, mt: 1, zIndex: 10, boxShadow: 4, borderRadius: 2 }}>
                 <List sx={{ p: 0 }}>
-                  {searchResults.map((result) => (
+                  {filteredSuggestions.map((item) => (
                     <ListItem
-                      key={result.id}
+                      key={item.id}
                       onClick={() => {
-                        setKeyword(result.title)
+                        setKeyword(item.title)
                         setIsFocused(false)
-                        setHasSearched(true)
-                        setTimeout(() => {
-                          resultsRef.current?.scrollIntoView({ behavior: 'smooth' })
-                        }, 100)
+                        executeSearch(item.title)
                       }}
                       sx={{
                         cursor: 'pointer',
@@ -182,10 +256,10 @@ const BookSearch = () => {
                         py: 2,
                       }}
                     >
-                      <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>{result.title.charAt(0)}</Avatar>
+                      <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>{item.title.charAt(0)}</Avatar>
                       <ListItemText
-                        primary={result.title}
-                        secondary={result.author}
+                        primary={item.title}
+                        secondary={item.author}
                       />
                     </ListItem>
                   ))}
@@ -223,11 +297,12 @@ const BookSearch = () => {
               fullWidth
               variant="contained"
               color="secondary"
-              startIcon={<SearchIcon />}
+              startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
               onClick={handleSearch}
+              disabled={isLoading}
               sx={{ py: 1.2 }}
             >
-              검색하기
+              {isLoading ? '검색 진행중...' : '검색하기'}
             </Button>
           </Box>
         </Container>
@@ -257,6 +332,7 @@ const BookSearch = () => {
               {searchResults.map((book) => (
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={book.id}>
                   <Card
+                    onClick={() => navigate(`/books/${book.id}`)}
                     sx={{
                       height: '100%',
                       cursor: 'pointer',
@@ -308,6 +384,21 @@ const BookSearch = () => {
                 <Typography variant="h6" color="text.secondary">
                   검색 결과가 없습니다.
                 </Typography>
+              </Box>
+            )}
+
+            {/* 더보기 버튼 */}
+            {!isLoading && nextUrl && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  sx={{ px: 4, py: 1.5 }}
+                >
+                  {isLoadingMore ? <CircularProgress size={24} /> : '더보기'}
+                </Button>
               </Box>
             )}
           </Container>

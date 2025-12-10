@@ -22,6 +22,8 @@ import org.springframework.web.filter.CorsFilter;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final CustomAuthenticationEntryPoint authenticationEntryPoint;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -51,6 +53,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/premier/**").hasRole("PREMIER")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().permitAll())
+
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
 
                 .addFilterAfter(
                         jwtFilter, CorsFilter.class
